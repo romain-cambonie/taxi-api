@@ -1,0 +1,102 @@
+name: Release the up-to-date container on dockerhub.
+
+on:
+  workflow_dispatch:
+
+env:
+  target-dockerhub-registry: 'rcambonie/taxi-aymeric-api'
+
+jobs:
+  dynamic-variables:
+    name: Generate variables used in the following jobs from the environment variables and secrets.
+    runs-on: ubuntu-latest
+
+    outputs:
+      is-discord-hooked: ${{ steps.set-variables.outputs.is-discord-hooked }}
+      target-dockerhub-registry: ${{ steps.set-variables.outputs.target-dockerhub-registry }}
+
+    steps:
+      - name: Target repository fully qualified name
+        id: target-dockerhub-registry
+        run: |
+          TARGET_DOCKERHUB_REPOSITORY=${{ env.target-dockerhub-registry }}
+          echo "is-discord-hooked=$TARGET_DOCKERHUB_REPOSITORY" >> $GITHUB_OUTPUT
+
+  # TODO Add standard application build/validate/release/run CI
+  build-and-upload-application-bundle:
+    uses: romain-cambonie/serenity-workflows/.github/workflows/_build-and-upload-artifact.reusable.yml@master
+    with:
+      node-version: '18.13'
+      package-manager: 'npm'
+      package-manager-dependencies-command: 'npm install'
+      build-command: 'run build'
+      out-dir: 'build'
+
+
+  build-and-push-docker-image:
+    name: Build Docker image and push to registry if on master branch
+    runs-on: ubuntu-latest
+    needs:
+      - dynamic-variables
+      - build-and-upload-application-bundle
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Download application build artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: bundle
+          path: .
+
+      - name: Verify resulting structure
+        run: ls -laR
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+        with:
+          version: v0.10.0
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+
+      - name: Build
+        run: |
+          docker build . -t rcambonie/taxi-aymeric-api:latest
+          docker push rcambonie/taxi-aymeric-api
+      #- name: Build image and push to Docker Hub
+      #  uses: docker/build-push-action@v3
+      #  with:
+      #    context: .
+      #    file: ./Dockerfile
+      #    tags: |
+      #      ${{ env.target-dockerhub-registry }}:latest
+      #    # build on feature branches, push only on master branch
+      #    push: ${{ github.ref == 'refs/heads/master' }}
+
+  notify-discord:
+    if: ${{ github.ref == 'refs/heads/master' }}
+    needs:
+      - build-and-push-docker-image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prepare payload
+        run: >-
+          (jq -r '.' <<< '
+          {
+            "username": "Taxi Aymeric Docker Deployer",
+            "content": "Une nouvelle image à été poussée sur taxi-aymeric-api"
+          }'
+          ) > payload
+      - name: Send notification
+        run: >-
+          curl
+          --header "Content-Type:application/json"
+          --request POST
+          --data @payload
+          ${{ secrets.DISCORD_NOTIFY_HOOK_URL }}
