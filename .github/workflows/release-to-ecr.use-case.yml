@@ -1,0 +1,74 @@
+name: Release the up-to-date container on ECR.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  # TODO Add standard application build/validate/release/run CI
+  build-and-upload-application-bundle:
+    uses: romain-cambonie/serenity-workflows/.github/workflows/_build-and-upload-artifact.reusable.yml@master
+    with:
+      node-version: '18.13'
+      package-manager: 'npm'
+      package-manager-dependencies-command: 'npm install'
+      build-command: 'run build'
+      out-dir: 'build'
+
+
+  build-and-push-docker-image:
+    name: Build Docker image and push to registry if on master branch
+    runs-on: ubuntu-latest
+    needs:
+      - build-and-upload-application-bundle
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Download application build artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: bundle
+          path: .
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Build, tag, and push docker image to Amazon ECR
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY: 'taxi-aymeric'
+          IMAGE_TAG: 'latest'
+        run: |
+          docker build -t $REGISTRY/$REPOSITORY:$IMAGE_TAG .
+          docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
+
+  notify-discord:
+    if: ${{ github.ref == 'refs/heads/master' }}
+    needs:
+      - build-and-push-docker-image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prepare payload
+        run: >-
+          (jq -r '.' <<< '
+          {
+            "username": "Taxi Aymeric Docker Deployer",
+            "content": "Une nouvelle image à été poussée sur taxi-aymeric-api"
+          }'
+          ) > payload
+      - name: Send notification
+        run: >-
+          curl
+          --header "Content-Type:application/json"
+          --request POST
+          --data @payload
+          ${{ secrets.DISCORD_NOTIFY_HOOK_URL }}
