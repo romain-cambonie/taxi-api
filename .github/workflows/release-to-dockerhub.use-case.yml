@@ -1,27 +1,9 @@
-name: Release the up-to-date container on dockerhub.
+name: Release the up-to-date container on ECR.
 
 on:
   workflow_dispatch:
 
-env:
-  target-dockerhub-registry: 'rcambonie/taxi-aymeric-api'
-
 jobs:
-  dynamic-variables:
-    name: Generate variables used in the following jobs from the environment variables and secrets.
-    runs-on: ubuntu-latest
-
-    outputs:
-      is-discord-hooked: ${{ steps.set-variables.outputs.is-discord-hooked }}
-      target-dockerhub-registry: ${{ steps.set-variables.outputs.target-dockerhub-registry }}
-
-    steps:
-      - name: Target repository fully qualified name
-        id: target-dockerhub-registry
-        run: |
-          TARGET_DOCKERHUB_REPOSITORY=${{ env.target-dockerhub-registry }}
-          echo "is-discord-hooked=$TARGET_DOCKERHUB_REPOSITORY" >> $GITHUB_OUTPUT
-
   # TODO Add standard application build/validate/release/run CI
   build-and-upload-application-bundle:
     uses: romain-cambonie/serenity-workflows/.github/workflows/_build-and-upload-artifact.reusable.yml@master
@@ -50,53 +32,40 @@ jobs:
           name: bundle
           path: .
 
-      - name: Verify resulting structure
-        run: ls -laR
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
         with:
           version: v0.10.0
 
-      - name: Login to DockerHub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-
       - name: Build
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
         run: |
-          docker build . -t rcambonie/taxi-aymeric-api:latest
-          docker push rcambonie/taxi-aymeric-api
-      #- name: Build image and push to Docker Hub
-      #  uses: docker/build-push-action@v3
-      #  with:
-      #    context: .
-      #    file: ./Dockerfile
-      #    tags: |
-      #      ${{ env.target-dockerhub-registry }}:latest
-      #    # build on feature branches, push only on master branch
-      #    push: ${{ github.ref == 'refs/heads/master' }}
+          aws ecr get-login-password | docker login --username AWS --password-stdin ${{ secrets.ECR_REPOSITORY_URI }}
+          docker build -t ${{ secrets.ECR_REPOSITORY_NAME }} .
+          docker tag ${{ secrets.ECR_REPOSITORY_NAME }}:${{ secrets.ECR_REPOSITORY_TAG }} ${{ secrets.ECR_REPOSITORY_URI }}/${{ secrets.ECR_REPOSITORY_NAME }}:${{ secrets.ECR_REPOSITORY_TAG }}
+          docker push ${{ secrets.ECR_REPOSITORY_NAME }}:${{ secrets.ECR_REPOSITORY_TAG }}
 
-  notify-discord:
-    if: ${{ github.ref == 'refs/heads/master' }}
-    needs:
-      - build-and-push-docker-image
-    runs-on: ubuntu-latest
-    steps:
-      - name: Prepare payload
-        run: >-
-          (jq -r '.' <<< '
-          {
-            "username": "Taxi Aymeric Docker Deployer",
-            "content": "Une nouvelle image à été poussée sur taxi-aymeric-api"
-          }'
-          ) > payload
-      - name: Send notification
-        run: >-
-          curl
-          --header "Content-Type:application/json"
-          --request POST
-          --data @payload
-          ${{ secrets.DISCORD_NOTIFY_HOOK_URL }}
+  #notify-discord:
+  #  if: ${{ github.ref == 'refs/heads/master' }}
+  #  needs:
+  #    - build-and-push-docker-image
+  #  runs-on: ubuntu-latest
+  #  steps:
+  #    - name: Prepare payload
+  #      run: >-
+  #        (jq -r '.' <<< '
+  #        {
+  #          "username": "Taxi Aymeric Docker Deployer",
+  #          "content": "Une nouvelle image à été poussée sur taxi-aymeric-api"
+  #        }'
+  #        ) > payload
+  #    - name: Send notification
+  #      run: >-
+  #        curl
+  #        --header "Content-Type:application/json"
+  #        --request POST
+  #        --data @payload
+  #        ${{ secrets.DISCORD_NOTIFY_HOOK_URL }}
