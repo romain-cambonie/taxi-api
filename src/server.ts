@@ -2,7 +2,7 @@
 import fastify, {FastifyInstance} from 'fastify'
 
 const server: FastifyInstance = fastify();
-const PORT: number = 3001;
+const PORT: number = 443;
 const HOST: string =  "localhost";
 
 server.get('/ping', async (_request, _reply) => {
