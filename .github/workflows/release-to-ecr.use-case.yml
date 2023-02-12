@@ -2,6 +2,9 @@ name: Release the up-to-date container on ECR.
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
   # TODO Add standard application build/validate/release/run CI
