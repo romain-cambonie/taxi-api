@@ -2,7 +2,7 @@
 import fastify, {FastifyInstance} from 'fastify'
 
 const server: FastifyInstance = fastify();
-const PORT: number = 3000;
+const PORT: number = 443;
 const HOST: string =  "localhost";
 
 server.get('/', async (_request, _reply) => {
