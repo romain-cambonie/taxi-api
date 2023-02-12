@@ -1,7 +1,7 @@
 FROM amazonlinux:2022
 RUN dnf check-update
 RUN dnf update
-RUN dnf install -y nodejs
+RUN dnf install -y nodejs npm
 ENV NODE_ENV production
 WORKDIR /usr/src/app
 COPY ./build /usr/src/app/build
