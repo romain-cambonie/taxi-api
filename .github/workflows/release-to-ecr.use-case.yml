@@ -55,7 +55,7 @@ jobs:
           docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
 
   notify-discord:
-    if: ${{ github.ref == 'refs/heads/master' }}
+    if: ${{ github.ref == 'refs/heads/main' }}
     needs:
       - build-and-push-docker-image
     runs-on: ubuntu-latest
