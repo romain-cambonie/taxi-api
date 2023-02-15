@@ -2,11 +2,15 @@
 import fastify, {FastifyInstance} from 'fastify'
 
 const server: FastifyInstance = fastify();
-const PORT: number = 443;
-const HOST: string =  "localhost";
+const PORT: number = parseInt(process.env['PORT'] ?? "80");
+const HOST: string =  "0.0.0.0";
 
 server.get('/', async (_request, _reply) => {
     return 'OK\n'
+})
+
+server.get('/api/ping', async (_request, _reply) => {
+    return 'dammned pong\n'
 })
 
 server.get('/ping', async (_request, _reply) => {

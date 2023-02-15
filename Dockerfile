@@ -8,4 +8,5 @@ COPY ./build /usr/src/app/build
 COPY ./package.json /usr/src/app/package.json
 COPY ./package-lock.json /usr/src/app/package-lock.json
 RUN npm ci --only=production
+EXPOSE 80
 CMD ["node", "build/server.js"]
