@@ -25,25 +25,49 @@ server.get('/', async (_request, _reply) => {
     return 'OK\n'
 })
 
-server.get('/ping', async (_request, _reply) => {
-    return 'pong\n'
-})
-
 server.get('/fares/:date', (req: DateRequest, reply) => {
     server.pg.query(
-        'SELECT * FROM public.fares_orient WHERE date=$1', [req.params.date],
-        function onResult (err, result) {
-            reply.send(err || (result.rows ?? []))
-        }
+    `
+    SELECT 
+        fares.rid,
+        clients.identity AS clientIdentity,
+        drivers.identity AS driverIdentity,
+        clients.phone,
+        fares.created_at,
+        fares.creator,
+        fares.date,
+        fares.distance,
+        fares.duration,
+        fares.isreturn,
+        fares.locked,
+        fares.meters,
+        fares.recurrent,
+        fares.status,
+        fares.subcontractor,
+        fares."time",
+        fares."timestamp",
+        fares.updated_at,
+        fares.weeklyrecurrence,
+        fares.drive_rid,
+        drives.type,
+        drives.drive_from,
+        drives.drive_to,
+        drives.comment AS driveComment,
+        drives.distanceoverride,
+        drives.name,
+        clients.comment AS clientComment
+    FROM (fares fares
+     LEFT JOIN drives drives ON ((fares.drive_rid = drives.rid))
+     LEFT JOIN users clients ON ((drives.client_rid = clients.rid))
+     LEFT JOIN drivers drivers ON ((fares.driver_rid = drivers.rid))
+     )
+    WHERE (fares.date =$1);
+    `
+    , [req.params.date],
+    function onResult (err, result) {
+        reply.send(err || (result.rows ?? []))
+    }
     )
-})
-
-server.get('/delayed', async (_request, _reply) => {
-    const SECONDS_DELAY = 20000;
-    await new Promise<void>(resolve => {
-        setTimeout(() => resolve(), SECONDS_DELAY)
-    })
-    return { hello: 'delayed world' }
 })
 
 async function closeGracefully(signal: string | number | undefined) {
