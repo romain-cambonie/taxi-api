@@ -56,10 +56,10 @@ server.get('/fares/:date', (req: DateRequest, reply) => {
         drives.distanceoverride,
         drives.name,
         clients.comment AS clientComment
-    FROM (fares fares
-     LEFT JOIN drives drives ON ((fares.drive_rid = drives.rid))
-     LEFT JOIN users clients ON ((drives.client_rid = clients.rid))
-     LEFT JOIN drivers drivers ON ((fares.driver_rid = drivers.rid))
+    FROM (public.fares fares
+     LEFT JOIN public.drives drives ON ((fares.drive_rid = drives.rid))
+     LEFT JOIN public.users clients ON ((drives.client_rid = clients.rid))
+     LEFT JOIN public.drivers drivers ON ((fares.driver_rid = drivers.rid))
      )
     WHERE (fares.date =$1);
     `
