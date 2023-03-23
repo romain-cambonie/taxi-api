@@ -26,8 +26,8 @@ export const getFaresByDayPg = (db: PostgresDb) => async (date: string): Promise
 export const fareByDayRead: string = `
     SELECT 
         fares.rid,
-        clients.identity AS clientIdentity,
-        drivers.identity AS driverIdentity,
+        clients.identity AS clientidentity,
+        drivers.identity AS driveridentity,
         clients.phone,
         fares.created_at,
         fares.creator,
@@ -45,13 +45,13 @@ export const fareByDayRead: string = `
         fares.updated_at,
         fares.weeklyrecurrence,
         fares.drive_rid,
-        drives.type AS driveNature,
+        drives.nature AS drivenature,
         drives.drive_from,
         drives.drive_to,
-        drives.comment AS driveComment,
+        drives.comment AS drivecomment,
         drives.distanceoverride,
         drives.name,
-        clients.comment AS clientComment
+        clients.comment AS clientcomment
     FROM (public.fares fares
      LEFT JOIN public.drives drives ON ((fares.drive_rid = drives.rid))
      LEFT JOIN public.users clients ON ((drives.client_rid = clients.rid))
@@ -81,7 +81,7 @@ export type FarePg = {
     updated_at: string;
     weeklyrecurrence: string;
     drive_rid: string;
-    drivetype: string;
+    drivenature: string;
     drive_from: string;
     drive_to: string;
     drivecomment: string | null;
@@ -105,7 +105,7 @@ export type FareTransfer = {
     driveFrom: string;
     driveKind: 'one-way' | 'outward' | 'return';
     driveName: string;
-    driveNature: 'medical' | 'normal';
+    driveNature: 'medical' | 'standard';
     driveRid: string;
     driverIdentity: string | undefined;
     driveTo: string;
@@ -130,9 +130,9 @@ export const toFaresTransfer = (fare: FarePg): FareTransfer => {
         driveDistanceInMeters: fare.meters,
         driveDistanceOverride: fare.distanceoverride ?? undefined,
         driveFrom: fare.drive_from,
-        driveKind: 'outward',
+        driveKind: fare.isreturn ? 'return' : 'outward',
         driveName: fare.name,
-        driveNature: "medical",
+        driveNature: fare.drivenature as 'medical' | 'standard',
         driveRid: fare.drive_rid,
         driveTo: fare.drive_to,
         driverIdentity: fare.driveridentity ?? undefined,
