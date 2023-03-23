@@ -1,7 +1,7 @@
 // TODO This is an insecure http server set to http2 before production !
 import fastify, {FastifyInstance, FastifyRequest} from 'fastify'
-import postgres from '@fastify/postgres'
-
+import postgres, {PostgresDb} from '@fastify/postgres'
+import {fareByDayRead, FarePg, toFaresTransfer} from './fares'
 
 type DateRequest = FastifyRequest<{
     Params: {
@@ -25,49 +25,28 @@ server.get('/', async (_request, _reply) => {
     return 'OK\n'
 })
 
-server.get('/fares/:date', (req: DateRequest, reply) => {
-    server.pg.query(
-    `
-    SELECT 
-        fares.rid,
-        clients.identity AS clientIdentity,
-        drivers.identity AS driverIdentity,
-        clients.phone,
-        fares.created_at,
-        fares.creator,
-        fares.date,
-        fares.distance,
-        fares.duration,
-        fares.isreturn,
-        fares.locked,
-        fares.meters,
-        fares.recurrent,
-        fares.status,
-        fares.subcontractor,
-        fares."time",
-        fares."timestamp",
-        fares.updated_at,
-        fares.weeklyrecurrence,
-        fares.drive_rid,
-        drives.type,
-        drives.drive_from,
-        drives.drive_to,
-        drives.comment AS driveComment,
-        drives.distanceoverride,
-        drives.name,
-        clients.comment AS clientComment
-    FROM (public.fares fares
-     LEFT JOIN public.drives drives ON ((fares.drive_rid = drives.rid))
-     LEFT JOIN public.users clients ON ((drives.client_rid = clients.rid))
-     LEFT JOIN public.drivers drivers ON ((fares.driver_rid = drivers.rid))
-     )
-    WHERE (fares.date =$1);
-    `
-    , [req.params.date],
-    function onResult (err, result) {
-        reply.send(err || (result.rows ?? []))
+const getFaresByDayPg = (db: PostgresDb) => async (date: string): Promise<FarePg[] | Error>  => {
+    const client = await db.connect();
+    try {
+        const { rows } = await client.query(
+            fareByDayRead, [date]
+        )
+
+        return rows ?? [];
     }
-    )
+    catch (error: unknown) {
+        return new Error((error as Error).message);
+    } finally {
+        client.release()
+    }
+}
+
+server.get('/fares/:date', async (req: DateRequest, reply) => {
+    const fares: FarePg[] | Error = await getFaresByDayPg(server.pg)(req.params.date);
+
+    fares instanceof Error
+        ? reply.send(fares)
+        : reply.send(fares.map(toFaresTransfer));
 })
 
 async function closeGracefully(signal: string | number | undefined) {

@@ -4,8 +4,10 @@
   "compilerOptions": {
     "outDir": "build",
     "lib": [
-      "es2022"
+      "es2022",
+      "es2018.promise"
     ],
+    "baseUrl": "src",
     "module": "es2022",
     "target": "es2022",
     "strict": true,
@@ -26,5 +28,11 @@
     "importsNotUsedAsValues": "error",
     "allowJs": true,
     "checkJs": true
-  }
+  },
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "src/**/*.spec.ts"
+  ]
 }
