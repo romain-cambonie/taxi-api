@@ -1,3 +1,28 @@
+import type {PostgresDb} from "@fastify/postgres";
+import type {FastifyRequest} from "fastify";
+
+export type FareByDayRequest = FastifyRequest<{
+    Params: {
+        date: string,
+    };
+}>
+
+export const getFaresByDayPg = (db: PostgresDb) => async (date: string): Promise<FarePg[] | Error>  => {
+    const client = await db.connect();
+    try {
+        const { rows } = await client.query(
+            fareByDayRead, [date]
+        )
+
+        return rows ?? [];
+    }
+    catch (error: unknown) {
+        return new Error((error as Error).message);
+    } finally {
+        client.release()
+    }
+}
+
 export const fareByDayRead: string = `
     SELECT 
         fares.rid,
