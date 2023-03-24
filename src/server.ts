@@ -1,7 +1,7 @@
 import fastify, {FastifyInstance} from 'fastify'
 import postgres from '@fastify/postgres'
-import {closeGracefullyOnSignalInterrupt, start} from "./server.utils";
 import {FareByDayRequest, FarePg, getFaresByDayPg, toFaresTransfer} from './fares'
+import {closeGracefullyOnSignalInterrupt, start} from "./server.utils";
 
 
 const server: FastifyInstance = fastify();
